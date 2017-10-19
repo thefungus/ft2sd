@@ -1,8 +1,8 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <malloc.h>
 #include <stdio.h>
+#include <malloc.h>
 #include "dynamic_libs/os_functions.h"
 #include "dynamic_libs/fs_functions.h"
 #include "dynamic_libs/gx2_functions.h"
@@ -207,29 +207,38 @@ int Menu_Main(void)
 
     int initScreen = 1;
 
-    static const char* selection_paths[] =
-    {
-        "/dev/odd01",
-        "/dev/odd02",
-        "/dev/odd03",
-        "/dev/odd04",
-        "/dev/slccmpt01",
-        "/vol/system",
-        "/vol/storage_mlc01",
-        "/vol/storage_usb01",
-    };
+	static const char* selection_paths[] =
+	{
+		"/dev/odd03",
 
-    static const char* selection_paths_description[] =
-    {
-        "(disc tickets)",
-        "(disc update)",
-        "(disc content)",
-        "(disc content)",
-        "(vWii slc content)",
-        "(slc content)",
-        "(mlc content)",
-        "(usb01 content)",
-    };
+		"/vol/storage_mlc01",
+		"/vol/storage_usb01",
+
+		"/vol/storage_mlc01",
+		"/vol/storage_usb01"
+	};
+
+	static const char* selection_paths_description[] =
+	{
+		"GAME FILES: Disc",
+
+		"GAME FILES: Digital game installed on System",
+		"GAME FILES: Digital game installed on USB",
+
+		"PATCH FILES: on System",
+		"PATCH FILES: on USB"
+	};
+
+	static const char* selection_paths_targets[] =
+	{
+		"dev:/",
+
+		"dev:/usr/title/00050000/",
+		"dev:/usr/title/00050000/",
+
+		"dev:/usr/title/0005000e/",
+		"dev:/usr/title/0005000e/"
+	};
 
     int selectedItem = 0;
 
@@ -262,21 +271,20 @@ int Menu_Main(void)
             OSScreenClearBufferEx(1, 0);
 
 
-            console_print_pos(0, 1, "-- File Tree 2 SD v0.1 by Dimok --");
+            console_print_pos(0, 0, "-- sm4sh2sd v0.1 by fungus --");
 
-            console_print_pos(0, 3, "Select what to dump to sd:/ft2sd and press A to start dump.");
-            console_print_pos(0, 4, "Hold B to cancel dump.");
+            console_print_pos(0, 3, "Dump one of GAME FILES first, and then dump one of PATCH FILES.");
 
             u32 i;
             for(i = 0; i < (sizeof(selection_paths) / 4); i++)
             {
                 if(selectedItem == (int)i)
                 {
-                    console_print_pos(0, 6 + i, "--> %s %s", selection_paths[i], selection_paths_description[i]);
+                    console_print_pos(0, 5 + i, "--> %s", selection_paths_description[i]);
                 }
                 else
                 {
-                    console_print_pos(0, 6 + i, "    %s %s", selection_paths[i], selection_paths_description[i]);
+                    console_print_pos(0, 5 + i, "    %s", selection_paths_description[i]);
                 }
             }
             // Flip buffers
@@ -302,8 +310,9 @@ int Menu_Main(void)
 
         if(vpadError == 0 && ((vpad.btns_d | vpad.btns_h) & VPAD_BUTTON_A))
         {
-            const char *dev_path = (selectedItem < 5) ? selection_paths[selectedItem] : NULL;
-            const char *mount_path = (selectedItem >= 5) ? selection_paths[selectedItem] : "/vol/storage_ft_content";
+            const char *dev_path = (selectedItem < 1) ? selection_paths[selectedItem] : NULL;
+            const char *mount_path = (selectedItem >= 1) ? selection_paths[selectedItem] : "/vol/storage_ft_content";
+			const char *target_path = selection_paths_targets[selectedItem];
 
             int res = mount_fs("dev", fsaFd, dev_path, mount_path);
             if(res < 0)
@@ -315,10 +324,16 @@ int Menu_Main(void)
                 char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
                 if(targetPath)
                 {
-                    strcpy(targetPath, "dev:/");
-                    DumpDir(targetPath, "sd:/ft2sd");
-
-                    free(targetPath);
+					strcpy(targetPath, target_path);
+					if (selectedItem < 1) 
+					{
+						DumpDir(targetPath, "sd:/sm4sh2sd/game");
+					}
+					else 
+					{
+						StartDump(targetPath, "sd:/sm4sh2sd", selectedItem);
+					}
+					free(targetPath);
                 }
                 unmount_fs("dev");
                 console_printf(1, "Dump complete");

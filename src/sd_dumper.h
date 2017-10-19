@@ -7,6 +7,7 @@ extern "C" {
 #endif
 
 int DumpDir(char *pPath, const char * target_path);
+int StartDump(char *pPath, const char * target_path, const int selectedItem);
 
 #ifdef __cplusplus
 }

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <sys/stat.h>
 #include <sys/dirent.h>
 #include "dynamic_libs/os_functions.h"
 #include "dynamic_libs/fs_functions.h"
@@ -14,19 +15,38 @@
 void console_printf(int newline, const char *format, ...);
 int checkCancel(void);
 
+static const char* game_ids[] =
+{
+	"10144f00",
+	"10145000",
+	"10110e00"
+};
+
 static int DumpFile(char *pPath, const char * output_path)
 {
-    char *pSlash = strchr(pPath, '/');
-    if(pSlash && pSlash[1] == '/')
-        pSlash++;
+	char *pPathShort = strstr(pPath, "0005000");
+	if (pPathShort != NULL) 
+	{
+		pPathShort += 18;
+	}
+	else 
+	{
+		pPathShort = strchr(pPath, '/');
+		if (pPathShort && pPathShort[1] == '/')
+			pPathShort++;
+	}
+
+	struct stat buffer;
+	if (stat(output_path, &buffer) == 0) {
+		console_printf(1, "Skipping %s\n", pPathShort);
+		return 0;
+	}
 
     char *pFilename = strrchr(pPath, '/');
     if(!pFilename)
         pFilename = pPath;
     else
         pFilename++;
-
-    console_printf(1, "0x%X - %s", 0, pSlash);
 
     unsigned char* dataBuf = (unsigned char*)memalign(0x40, BUFFER_SIZE);
     if(!dataBuf) {
@@ -36,7 +56,7 @@ static int DumpFile(char *pPath, const char * output_path)
     FILE *pReadFile = fopen(pPath, "rb");
     if(!pReadFile)
     {
-        console_printf(1, "Can't open file %s\n", pPath);
+        //console_printf(1, "Can't open file %s\n", pPath);
         return -2;
     }
 
@@ -47,6 +67,8 @@ static int DumpFile(char *pPath, const char * output_path)
         fclose(pReadFile);
         return -3;
     }
+
+	console_printf(1, "0x%X - %s", 0, pPathShort);
 
     unsigned int size = 0;
     unsigned int ret;
@@ -62,7 +84,7 @@ static int DumpFile(char *pPath, const char * output_path)
 
         fwrite(dataBuf, 0x01, ret, pWriteFile);
         size += ret;
-        console_printf(0, " %s - 0x%X (%i kB/s) (%s)\r", pFilename, size, (u32)(((u64)size * 1000) / ((u64)1024 * passedMs)), pSlash);
+        console_printf(0, " %s - 0x%X (%i kB/s) (%s)\r", pFilename, size, (u32)(((u64)size * 1000) / ((u64)1024 * passedMs)), pPathShort);
     }
 
     fclose(pWriteFile);
@@ -92,8 +114,17 @@ int DumpDir(char *pPath, const char * target_path)
             return -1;
         }
 
-        char *pSlash = strchr(pPath, '/');
-        snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s%s", target_path, pSlash);
+		char *pPathShort = strstr(pPath, "0005000");
+		if (pPathShort != NULL)
+		{
+			pPathShort += 17;
+		}
+		else
+		{
+			pPathShort = strchr(pPath, '/');
+		}
+
+        snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s%s", target_path, pPathShort);
         CreateSubfolder(targetPath);
         free(targetPath);
     }
@@ -109,26 +140,31 @@ int DumpDir(char *pPath, const char * target_path)
         int len = strlen(pPath);
         snprintf(pPath + len, FS_MAX_FULLPATH_SIZE - len, "/%s", dirent->d_name);
 
-        char *pSlash = strchr(pPath, '/');
-
-        if(!pSlash)
-        {
-            console_printf(1, "Error on %s\n", pPath);
-            continue;
-        }
-        if(pSlash[1] == '/')
-            pSlash++;
+		char *pPathShort = strstr(pPath, "0005000");
+		if (pPathShort != NULL)
+		{
+			pPathShort += 17;
+		}
+		else
+		{
+			pPathShort = strchr(pPath, '/');
+			if (!pPathShort)
+			{
+				console_printf(1, "Error on %s\n", pPath);
+				continue;
+			}
+			if (pPathShort[1] == '/')
+				pPathShort++;
+		}
 
         if(dirent->d_type & DT_DIR)
         {
-            console_printf(1, "%s (%s)\n", dirent->d_name, pSlash);
-
             DumpDir(pPath, target_path);
         }
         else
         {
             char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
-            snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s%s", target_path, pSlash);
+            snprintf(targetPath, FS_MAX_FULLPATH_SIZE, "%s%s", target_path, pPathShort);
 
             DumpFile(pPath, targetPath);
             free(targetPath);
@@ -138,4 +174,40 @@ int DumpDir(char *pPath, const char * target_path)
 
     closedir(dir);
     return 0;
+}
+
+int StartDump(char *pPath, const char * target_path, const int selectedItem)
+{
+	char *targetPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+	char *sdPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+
+	if (targetPath && sdPath) 
+	{
+		strcpy(sdPath, target_path);
+		if (selectedItem < 3)
+			strcat(sdPath, "/game");
+		else
+			strcat(sdPath, "/update");
+		
+		u32 i;
+		for (i = 0; i < 3; i++)
+		{
+			strcpy(targetPath, pPath);
+			strcat(targetPath, game_ids[i]);
+			
+			DIR *dir = NULL;
+			dir = opendir(targetPath);
+			if (dir != NULL)
+			{
+				closedir(dir);
+				DumpDir(targetPath, sdPath);
+				break;
+			}
+		}
+
+		free(sdPath);
+		free(targetPath);
+	}
+
+	return 0;
 }

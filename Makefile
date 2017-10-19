@@ -28,7 +28,7 @@ export OBJCOPY	:=	$(PREFIX)objcopy
 # SOURCES is a list of directories containing source code
 # INCLUDES is a list of directories containing extra header files
 #---------------------------------------------------------------------------------
-TARGET		:=	ft2sd
+TARGET		:=	sm4sh2sd
 BUILD		:=	build
 BUILD_DBG	:=	$(TARGET)_dbg
 SOURCES		:=	src \
@@ -36,7 +36,7 @@ SOURCES		:=	src \
 				src/fs \
 				src/system \
 				src/utils
-DATA		:=	
+DATA		:=
 
 INCLUDES	:=  src
 
