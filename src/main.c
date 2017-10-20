@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <malloc.h>
+#include <sys/dirent.h>
 #include "dynamic_libs/os_functions.h"
 #include "dynamic_libs/fs_functions.h"
 #include "dynamic_libs/gx2_functions.h"
@@ -271,7 +272,7 @@ int Menu_Main(void)
             OSScreenClearBufferEx(1, 0);
 
 
-            console_print_pos(0, 0, "-- sm4sh2sd v0.1 by fungus --");
+            console_print_pos(0, 0, "-- sm4sh2sd v0.2 by fungus --");
 
             console_print_pos(0, 3, "Dump one of GAME FILES first, and then dump one of PATCH FILES.");
 
@@ -327,7 +328,34 @@ int Menu_Main(void)
 					strcpy(targetPath, target_path);
 					if (selectedItem < 1) 
 					{
-						DumpDir(targetPath, "sd:/sm4sh2sd/game");
+						char *contentPath = (char*)malloc(FS_MAX_FULLPATH_SIZE);
+						if (contentPath)
+						{
+							snprintf(contentPath, FS_MAX_FULLPATH_SIZE, "%s%s", targetPath, "content");
+
+							DIR *dir = NULL;
+							dir = opendir(contentPath);
+							if (dir != NULL)
+							{
+								closedir(dir);
+								free(contentPath);
+								DumpDir(targetPath, "sd:/sm4sh2sd/game");
+							}
+							else
+							{
+								free(contentPath);
+								unmount_fs("dev");
+								int res = mount_fs("dev", fsaFd, "/dev/odd04", mount_path);
+								if (res < 0)
+								{
+									console_printf(1, "Mount of %s to %s failed", "/dev/odd04", mount_path);
+								}
+								else
+								{
+									DumpDir(targetPath, "sd:/sm4sh2sd/game");
+								}
+							}
+						}
 					}
 					else 
 					{
